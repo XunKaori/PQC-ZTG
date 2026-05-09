@@ -1,0 +1,6 @@
+{
+  "name": "PQC-ZTG: Anti-Quantum Zero Trust Gateway",
+  "description": "A secure gateway system combining Zero Trust Architecture with Post-Quantum Cryptography (ML-KEM/ML-DSA) and Single Packet Authorization (SPA) to prevent 'Harvest Now, Decrypt Later' attacks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
