@@ -67,7 +67,7 @@ export default function App() {
   const [peers, setPeers] = useState<{id: string, clientId: string}[]>([]);
   const [targetPeer, setTargetPeer] = useState<string>('');
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
-  const [messagesMap, setMessagesMap] = useState<Record<string, { sender: string, text: string, type?: 'file', fileName?: string, isSelf: boolean, peerId: string }[]>>({
+  const [messagesMap, setMessagesMap] = useState<Record<string, { sender: string, text: string, type?: 'file', fileName?: string, isSelf: boolean, peerId: string, content?: string }[]>>({
     ALPHA: [],
     BETA: []
   });
@@ -75,7 +75,8 @@ export default function App() {
   const [inputText, setInputText] = useState('');
   const [lastResponse, setLastResponse] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch status and peers periodically
   useEffect(() => {
@@ -108,6 +109,7 @@ export default function App() {
                     text: m.type === 'file' ? `Received file: ${m.fileName}` : m.content,
                     type: m.type,
                     fileName: m.fileName,
+                    content: m.type === 'file' ? m.content : undefined,
                     isSelf: false,
                     peerId: senderPeer ? senderPeer.id : 'RELAY'
                   };
@@ -124,8 +126,16 @@ export default function App() {
   }, [sessionsMap, peers]);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [status.logs, messagesMap, activeIdentity]);
+    if (consoleEndRef.current) {
+      consoleEndRef.current.scrollTop = consoleEndRef.current.scrollHeight;
+    }
+  }, [status.logs]);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollTop = chatEndRef.current.scrollHeight;
+    }
+  }, [messagesMap, activeIdentity, targetPeer]);
 
   const fetchStatus = async () => {
     try {
@@ -224,6 +234,7 @@ export default function App() {
       text: type === 'text' ? inputText : `Sent file: ${fileData?.name}`,
       type, 
       fileName: fileData?.name,
+      content: type === 'file' ? fileData?.content : undefined,
       isSelf: true,
       peerId: targetPeer || 'RELAY'
     };
@@ -418,7 +429,10 @@ export default function App() {
               </div>
               
               {/* Chat View */}
-              <div className="flex-grow overflow-y-auto mb-4 space-y-4 pr-2">
+              <div 
+                ref={chatEndRef}
+                className="flex-grow overflow-y-auto mb-4 space-y-4 pr-2"
+              >
                 <AnimatePresence>
                   {messagesMap[activeIdentity]
                     .filter(m => m.peerId === (targetPeer || 'RELAY'))
@@ -449,8 +463,26 @@ export default function App() {
                           m.isSelf ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-[#1a1a1f] text-gray-300 border border-white/5 rounded-tl-none'
                         }`}>
                            {m.type === 'file' ? (
-                             <div className="flex items-center gap-2">
-                                <Server className="w-3 h-3 text-blue-300" /> {m.text}
+                             <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Server className="w-3 h-3 text-blue-300" /> {m.text}
+                                </div>
+                                {!m.isSelf && (
+                                  <button 
+                                    onClick={() => {
+                                      if (!m.content) return;
+                                      const link = document.createElement('a');
+                                      link.href = m.content;
+                                      link.download = m.fileName || 'quantum_secure_file';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }}
+                                    className="text-[10px] text-blue-400 hover:underline text-left"
+                                  >
+                                    [RESTORE DATA]
+                                  </button>
+                                )}
                              </div>
                            ) : m.text}
                         </div>
@@ -467,7 +499,6 @@ export default function App() {
                     <p className="text-[10px] mt-2">Waiting for quantum-safe traffic...</p>
                   </div>
                 )}
-                <div ref={logEndRef} />
               </div>
 
               <div className="space-y-4 pt-4 border-t border-white/5">
@@ -593,7 +624,10 @@ export default function App() {
                    <span>Latency: 4.2ms</span>
                 </div>
               </div>
-              <div className="p-4 font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[400px] flex-grow">
+              <div 
+                ref={consoleEndRef}
+                className="p-4 font-mono text-[11px] leading-relaxed overflow-y-auto max-h-[400px] flex-grow"
+              >
                 <AnimatePresence mode="popLayout">
                   {status.logs.map((log, i) => (
                     <motion.div 
@@ -609,7 +643,6 @@ export default function App() {
                       <span className="opacity-30">[{i.toString().padStart(3, '0')}]</span> {log}
                     </motion.div>
                   ))}
-                  <div ref={logEndRef} />
                 </AnimatePresence>
                 {status.logs.length === 0 && (
                   <div className="text-gray-700 italic">No activity detected. Standby...</div>
